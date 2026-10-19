@@ -1,0 +1,36 @@
+name: Post due reels
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # every 15 min (GitHub may run it a few minutes late)
+  workflow_dispatch:
+    inputs:
+      dry:
+        description: "Dry run (don't post)"
+        type: boolean
+        default: false
+permissions:
+  contents: write
+concurrency:
+  group: post
+  cancel-in-progress: false
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Post
+        env:
+          IG_TOKEN: ${{ secrets.IG_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_API_BASE: ${{ secrets.IG_API_BASE }}
+        run: node post.mjs ${{ inputs.dry && '--dry' || '' }}
+      - name: Save queue
+        run: |
+          if ! git diff --quiet queue/; then
+            git config user.name "purefuel-poster"
+            git config user.email "actions@users.noreply.github.com"
+            git add queue/ && git commit -m "Queue: posted/updated" && git push
+          fi

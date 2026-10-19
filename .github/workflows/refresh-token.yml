@@ -1,0 +1,25 @@
+name: Refresh Instagram token
+on:
+  schedule:
+    - cron: "17 9 * * 1"   # Mondays
+  workflow_dispatch:
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - id: r
+        env:
+          IG_TOKEN: ${{ secrets.IG_TOKEN }}
+          IG_API_BASE: ${{ secrets.IG_API_BASE }}
+        run: node refresh-token.mjs
+      - name: Save the new token
+        if: steps.r.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then echo "::warning::Token refreshed but no GH_PAT secret, so it wasn't saved. Add GH_PAT or paste a new IG_TOKEN within 60 days."; exit 0; fi
+          gh secret set IG_TOKEN --repo "$GITHUB_REPOSITORY" < .new_token
+          rm -f .new_token
